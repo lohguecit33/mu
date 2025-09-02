@@ -176,10 +176,10 @@ def device_worker(device_id, cookie, config):
             [ADB_PATH, "-s", device_id, "shell", "pidof", "com.roblox.client"],
             capture_output=True, text=True
         )
-        apk_status = "open" if proc.stdout.strip() else "close"
+        apk_status = "Terbuka" if proc.stdout.strip() else "Tertutup"
 
         # Cek presence hanya pada interval yang ditentukan
-        if cookie and apk_status == "open" and (current_time - last_presence_check) >= config["presence_check_interval"]:
+        if cookie and apk_status == "Terbuka" and (current_time - last_presence_check) >= config["presence_check_interval"]:
             try:
                 r = requests.get("https://users.roblox.com/v1/users/authenticated",
                                  headers={"Cookie": f".ROBLOSECURITY={cookie}"},
@@ -192,7 +192,7 @@ def device_worker(device_id, cookie, config):
                     presence = "Error"
             except:
                 presence = "Error"
-        elif apk_status == "close":
+        elif apk_status == "Tertutup":
             presence = "Offline"
 
         with status_lock:
@@ -205,7 +205,7 @@ def device_worker(device_id, cookie, config):
 
         # Logika rejoin - hanya jika interval check > 0
         if config["check_interval"] > 0:
-            if apk_status == "close" or presence == "Offline":
+            if apk_status == "Tertutup" or presence == "Offline":
                 online_count = 0
                 subprocess.run([ADB_PATH, "-s", device_id, "shell", "am", "force-stop", "com.roblox.client"],
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -288,7 +288,7 @@ def auto_rejoin():
             TaskProgressColumn(),
             transient=True
         )
-        task = progress.add_task("[green]detect emulator...", total=100)
+        task = progress.add_task("[green]Mendeteksi emulator...", total=100)
         with progress:
             for i in range(100):
                 time.sleep(0.25)
@@ -296,15 +296,15 @@ def auto_rejoin():
             devices = check_and_connect_devices(config)
 
         if not devices:
-            console.log("[red]no detected emulator![/red]")
+            console.log("[red]Tidak ada emulator terdeteksi![/red]")
             input("Tekan Enter untuk kembali ke menu...")
             return
 
-        console.log(f"[green]Deteksi {len(devices)} emulator done.[/green]")
+        console.log(f"[green]Deteksi {len(devices)} emulator selesai.[/green]")
         console.log(f"[yellow]Config: Interval={config['check_interval']}s, Presence Check={config['presence_check_interval']}s, Max Online Checks={config['max_online_checks']}, Max Ports={config['max_ports']}[/yellow]")
         
         if config["check_interval"] == 0:
-            console.log("[yellow]Mode monitor-only: no restart[/yellow]")
+            console.log("[yellow]Mode monitor-only: Tidak akan melakukan restart otomatis[/yellow]")
 
         for idx, device in enumerate(devices):
             cookie = cookies[idx] if idx < len(cookies) else None
@@ -333,11 +333,11 @@ def auto_rejoin():
                 time.sleep(1)
                 
     except KeyboardInterrupt:
-        console.print("\n[yellow]back main menu...[/yellow]")
+        console.print("\n[yellow]Kembali ke menu utama...[/yellow]")
         time.sleep(1)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        input("tap Enter back main menu...")
+        input("Tekan Enter untuk kembali ke menu...")
 
 # ======================================================
 # Fungsi Setup Config
@@ -349,14 +349,14 @@ def setup_config():
     config = load_config()
     
     console.print(f"Game ID saat ini: {config['game_id']}")
-    new_game_id = input("new game id (enter not change): ").strip()
+    new_game_id = input("Masukkan Game ID baru (kosongkan untuk tidak mengubah): ").strip()
     
     if new_game_id:
         try:
             config['game_id'] = int(new_game_id)
-            console.print(f"[green]Game ID change to: {config['game_id']}[/green]")
+            console.print(f"[green]Game ID diubah menjadi: {config['game_id']}[/green]")
         except ValueError:
-            console.print("[red]Game ID must be a number![/red]")
+            console.print("[red]Game ID harus berupa angka![/red]")
             return
     
     # Simpan config
@@ -421,11 +421,11 @@ def block_or_unblock(session, blocker_cookie, csrf_token, blocker_name, target_i
         )
         with lock:
             if resp.status_code == 200:
-                status_text = "Successfully blocked" if action == "block" else "Successfully unblocked"
+                status_text = "Berhasil block" if action == "block" else "Berhasil unblock"
             elif resp.status_code == 400:
-                status_text = "Already blocked" if action == "block" else "Not blocked"
+                status_text = "Sudah diblock" if action == "block" else "Tidak diblock"
             else:
-                status_text = f"Failed ({resp.status_code})"
+                status_text = f"Gagal ({resp.status_code})"
 
             results.append([blocker_name, target_name, status_text])
 
@@ -435,7 +435,7 @@ def block_or_unblock(session, blocker_cookie, csrf_token, blocker_name, target_i
 
 def process_action(users, action):
     results = []
-    console.print(f"\n🚀 starting {action}...\n")
+    console.print(f"\n🚀 Memulai proses saling {action}...\n")
     start = datetime.now()
 
     threads = []
@@ -476,12 +476,12 @@ def process_action(users, action):
     elapsed = (datetime.now() - start).total_seconds()
     console.print(f"\n⏱️ Selesai dalam {elapsed:.2f} detik")
 
-    input("\ntap Enter back main menu...")
+    input("\nTekan Enter untuk kembali ke menu...")
 
 def block_accounts():
     if not os.path.exists(COOKIES_FILE):
         console.print("[red]File cookies.txt tidak ditemukan![/red]")
-        input("Tap Enter back main menu...")
+        input("Tekan Enter untuk kembali ke menu...")
         return
         
     with open(COOKIES_FILE, 'r') as f:
@@ -499,15 +499,15 @@ def block_accounts():
 
     if not users:
         console.print("[red]Tidak ada akun yang valid![/red]")
-        input("Tap Enter back main menu...")
+        input("Tekan Enter untuk kembali ke menu...")
         return
         
     while True:
         console.print("\n[bold]Menu Block/Unblock:[/bold]")
-        console.print("1. Block all account")
-        console.print("2. Unblock all account")
-        console.print("0. back main menu")
-        choice = input("selected (0/1/2): ").strip()
+        console.print("1. Block semua akun")
+        console.print("2. Unblock semua akun")
+        console.print("0. Kembali ke menu utama")
+        choice = input("Masukkan pilihan (0/1/2): ").strip()
 
         if choice == "1":
             process_action(users, "block")
@@ -516,10 +516,10 @@ def block_accounts():
         elif choice == "0" or choice == "":
             break
         else:
-            console.print("[red]Invalid selection![/red]")
+            console.print("[red]Pilihan tidak valid![/red]")
 
 # ======================================================
-# Main Menu
+# Menu Utama
 # ======================================================
 def main_menu():
     while True:
@@ -528,11 +528,11 @@ def main_menu():
         console.print("="*50)
         console.print("1. Auto Rejoin Roblox")
         console.print("2. Setup Config (Game ID)")
-        console.print("3. Block/Unblock account")
-        console.print("0. Exit")
+        console.print("3. Block/Unblock Akun")
+        console.print("0. Keluar")
         console.print("="*50)
         
-        choice = input("selected (0-3): ").strip()
+        choice = input("Pilih menu (0-3): ").strip()
         
         if choice == "1":
             auto_rejoin()
