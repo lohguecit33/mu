@@ -24,24 +24,42 @@ device_status = {}
 lock = threading.Lock()
 
 # ======================================================
-# Fungsi utilitas
+# Fungsi utilitas - DIPERBAIKI
 # ======================================================
 def load_config():
-    """Buat config.json kalau belum ada"""
+    """Buat config.json kalau belum ada atau ada key yang hilang"""
+    default_config = {
+        "game_id": 2753915549,
+        "private_link": "",
+        "check_interval": 60,
+        "presence_check_interval": 120,
+        "max_online_checks": 3,
+        "max_ports": 20
+    }
+    
+    # Buat file config jika belum ada
     if not os.path.exists(CONFIG_FILE):
-        default_config = {
-            "game_id": 2753915549,
-            "private_link": "",
-            "check_interval": 60,
-            "presence_check_interval": 120,
-            "max_online_checks": 3,
-            "max_ports": 20
-        }
         with open(CONFIG_FILE, "w") as f:
             json.dump(default_config, f, indent=4)
+        return default_config
+    
+    # Load config yang ada
     with open(CONFIG_FILE, "r") as f:
         config = json.load(f)
-        
+    
+    # Periksa dan tambahkan key yang mungkin hilang
+    config_updated = False
+    for key, default_value in default_config.items():
+        if key not in config:
+            config[key] = default_value
+            config_updated = True
+            console.log(f"[yellow]Key {key} tidak ditemukan, menggunakan nilai default: {default_value}[/yellow]")
+    
+    # Simpan config jika ada perubahan
+    if config_updated:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=4)
+    
     # Validasi nilai config
     if config["check_interval"] <= 0:
         config["check_interval"] = 60
@@ -279,56 +297,66 @@ def check_and_connect_devices(config):
 # Fungsi Auto Rejoin
 # ======================================================
 def auto_rejoin():
-    config = load_config()
-    cookies = load_cookies()
+    try:
+        config = load_config()
+        cookies = load_cookies()
 
-    progress = Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        transient=True
-    )
-    task = progress.add_task("[green]Mendeteksi emulator...", total=100)
-    with progress:
-        for i in range(100):
-            time.sleep(0.25)
-            progress.update(task, advance=1)
-        devices = check_and_connect_devices(config)
+        progress = Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            transient=True
+        )
+        task = progress.add_task("[green]Mendeteksi emulator...", total=100)
+        with progress:
+            for i in range(100):
+                time.sleep(0.25)
+                progress.update(task, advance=1)
+            devices = check_and_connect_devices(config)
 
-    if not devices:
-        console.log("[red]Tidak ada emulator terdeteksi![/red]")
-        return
+        if not devices:
+            console.log("[red]Tidak ada emulator terdeteksi![/red]")
+            input("Tekan Enter untuk kembali ke menu...")
+            return
 
-    console.log(f"[green]Deteksi {len(devices)} emulator selesai.[/green]")
-    console.log(f"[yellow]Config: Interval={config['check_interval']}s, Presence Check={config['presence_check_interval']}s, Max Online Checks={config['max_online_checks']}, Max Ports={config['max_ports']}[/yellow]")
-    
-    if config["check_interval"] == 0:
-        console.log("[yellow]Mode monitor-only: Tidak akan melakukan restart otomatis[/yellow]")
+        console.log(f"[green]Deteksi {len(devices)} emulator selesai.[/green]")
+        console.log(f"[yellow]Config: Interval={config['check_interval']}s, Presence Check={config['presence_check_interval']}s, Max Online Checks={config['max_online_checks']}, Max Ports={config['max_ports']}[/yellow]")
+        
+        if config["check_interval"] == 0:
+            console.log("[yellow]Mode monitor-only: Tidak akan melakukan restart otomatis[/yellow]")
 
-    for idx, device in enumerate(devices):
-        cookie = cookies[idx] if idx < len(cookies) else None
-        user_id, username = (None, None)
-        if cookie:
-            user_id, username = get_user_id(cookie)
+        for idx, device in enumerate(devices):
+            cookie = cookies[idx] if idx < len(cookies) else None
+            user_id, username = (None, None)
+            if cookie:
+                user_id, username = get_user_id(cookie)
 
-        with status_lock:
-            device_status[device] = {
-                "apk": "-",
-                "presence": "-",
-                "user_id": user_id if user_id else "-",
-                "username": username if username else "-"
-            }
+            with status_lock:
+                device_status[device] = {
+                    "apk": "-",
+                    "presence": "-",
+                    "user_id": user_id if user_id else "-",
+                    "username": username if username else "-"
+                }
 
-        threading.Thread(
-            target=device_worker,
-            args=(device, cookie, config),
-            daemon=True
-        ).start()
+            threading.Thread(
+                target=device_worker,
+                args=(device, cookie, config),
+                daemon=True
+            ).start()
 
-    with Live(build_table(), refresh_per_second=2, console=console, screen=True) as live:
-        while True:
-            live.update(build_table())
-            time.sleep(1)
+        console.print("[yellow]Tekan Ctrl+C untuk kembali ke menu utama[/yellow]")
+        with Live(build_table(), refresh_per_second=2, console=console, screen=True) as live:
+            while True:
+                live.update(build_table())
+                time.sleep(1)
+                
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Kembali ke menu utama...[/yellow]")
+        time.sleep(1)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        input("Tekan Enter untuk kembali ke menu...")
 
 # ======================================================
 # Fungsi Setup Config
@@ -337,18 +365,7 @@ def setup_config():
     console.print("\n[bold]Setup Konfigurasi[/bold]")
     
     # Load config yang ada
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            config = json.load(f)
-    else:
-        config = {
-            "game_id": 2753915549,
-            "private_link": "",
-            "check_interval": 60,
-            "presence_check_interval": 120,
-            "max_online_checks": 3,
-            "max_ports": 20
-        }
+    config = load_config()
     
     console.print(f"Game ID saat ini: {config['game_id']}")
     new_game_id = input("Masukkan Game ID baru (kosongkan untuk tidak mengubah): ").strip()
@@ -383,12 +400,15 @@ def get_username_by_id(user_id):
         return 'Unknown'
 
 def get_csrf_token(session, cookie):
-    resp = session.post(
-        'https://auth.roblox.com/v2/login',
-        cookies={'.ROBLOSECURITY': cookie},
-        timeout=5
-    )
-    return resp.headers.get('x-csrf-token')
+    try:
+        resp = session.post(
+            'https://auth.roblox.com/v2/login',
+            cookies={'.ROBLOSECURITY': cookie},
+            timeout=5
+        )
+        return resp.headers.get('x-csrf-token')
+    except:
+        return None
 
 def generate_rbx_event_tracker():
     return (
@@ -413,11 +433,10 @@ def block_or_unblock(session, blocker_cookie, csrf_token, blocker_name, target_i
                 'X-CSRF-TOKEN': csrf_token,
                 'Origin': 'https://www.roblox.com',
                 'Referer': 'https://www.roblox.com/',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json, text/plain, */*',
-                'Content-Length': '0',
             },
-            timeout=5
+            timeout=10
         )
         with lock:
             if resp.status_code == 200:
@@ -479,7 +498,12 @@ def process_action(users, action):
     input("\nTekan Enter untuk kembali ke menu...")
 
 def block_accounts():
-    with open('cookies.txt', 'r') as f:
+    if not os.path.exists(COOKIES_FILE):
+        console.print("[red]File cookies.txt tidak ditemukan![/red]")
+        input("Tekan Enter untuk kembali ke menu...")
+        return
+        
+    with open(COOKIES_FILE, 'r') as f:
         raw_cookies = [line.strip() for line in f if line.strip()]
 
     users = []
@@ -492,6 +516,11 @@ def block_accounts():
         else:
             console.print(f"[red]✘ Gagal membaca cookie[/red]")
 
+    if not users:
+        console.print("[red]Tidak ada akun yang valid![/red]")
+        input("Tekan Enter untuk kembali ke menu...")
+        return
+        
     while True:
         console.print("\n[bold]Menu Block/Unblock:[/bold]")
         console.print("1. Block semua akun")
