@@ -27,38 +27,22 @@ lock = threading.Lock()
 # Fungsi utilitas - DIPERBAIKI
 # ======================================================
 def load_config():
-    """Buat config.json kalau belum ada atau ada key yang hilang"""
-    default_config = {
-        "game_id": 2753915549,
-        "private_link": "",
-        "check_interval": 60,
-        "presence_check_interval": 120,
-        "max_online_checks": 3,
-        "max_ports": 20
-    }
-    
-    # Buat file config jika belum ada
+    """Buat config.json kalau belum ada"""
     if not os.path.exists(CONFIG_FILE):
+        default_config = {
+            "game_id": 2753915549,
+            "private_link": "",
+            "check_interval": 60,
+            "presence_check_interval": 120,
+            "max_online_checks": 3,
+            "max_ports": 20
+        }
         with open(CONFIG_FILE, "w") as f:
             json.dump(default_config, f, indent=4)
-        return default_config
-    
-    # Load config yang ada
     with open(CONFIG_FILE, "r") as f:
         config = json.load(f)
     
-    # Periksa dan tambahkan key yang mungkin hilang
-    config_updated = False
-    for key, default_value in default_config.items():
-        if key not in config:
-            config[key] = default_value
-            config_updated = True
-            console.log(f"[yellow]Key {key} tidak ditemukan, menggunakan nilai default: {default_value}[/yellow]")
-    
-    # Simpan config jika ada perubahan
-    if config_updated:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=4)
+
     
     # Validasi nilai config
     if config["check_interval"] <= 0:
@@ -570,3 +554,4 @@ def main_menu():
 # ======================================================
 if __name__ == "__main__":
     main_menu()
+
