@@ -27,22 +27,15 @@ lock = threading.Lock()
 # Fungsi utilitas - DIPERBAIKI
 # ======================================================
 def load_config():
-    """Buat config.json kalau belum ada"""
-    if not os.path.exists(CONFIG_FILE):
-        default_config = {
-            "game_id": 2753915549,
-            "private_link": "",
-            "check_interval": 60,
-            "presence_check_interval": 120,
-            "max_online_checks": 3,
-            "max_ports": 20
-        }
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(default_config, f, indent=4)
-    with open(CONFIG_FILE, "r") as f:
-        config = json.load(f)
-    
-
+    """Buat config.json kalau belum ada atau ada key yang hilang"""
+    default_config = {
+        "game_id": 2753915549,
+        "private_link": "",
+        "check_interval": 60,
+        "presence_check_interval": 120,
+        "max_online_checks": 3,
+        "max_ports": 20
+    }
     
     # Validasi nilai config
     if config["check_interval"] <= 0:
