@@ -8,8 +8,14 @@ from rich.console import Console
 from rich.table import Table
 from termcolor import colored
 
-# Lokasi adb di folder script
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Lokasi adb di dalam EXE (PyInstaller extract folder) atau di folder script
+if getattr(sys, 'frozen', False):
+    # Kalau sudah jadi EXE
+    SCRIPT_DIR = sys._MEIPASS
+else:
+    # Kalau masih berupa script .py
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 ADB_PATH = os.path.join(SCRIPT_DIR, "adb", "adb.exe")
 CONFIG_FILE = "config.json"
 COOKIES_FILE = "cookies.txt"
@@ -205,3 +211,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
