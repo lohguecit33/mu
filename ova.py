@@ -291,7 +291,7 @@ def auto_rejoin():
             TaskProgressColumn(),
             transient=True
         )
-        task = progress.add_task("[green]Mendeteksi emulator...", total=100)
+        task = progress.add_task("[green]Detecting emulator...", total=100)
         with progress:
             for i in range(100):
                 time.sleep(0.25)
@@ -554,3 +554,4 @@ def main_menu():
 # ======================================================
 if __name__ == "__main__":
     main_menu()
+
