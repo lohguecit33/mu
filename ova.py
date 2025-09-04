@@ -291,7 +291,7 @@ def auto_rejoin():
         task = progress.add_task("[green]detect emulator...", total=100)
         with progress:
             for i in range(100):
-                time.sleep(10.25)
+                time.sleep(0.5)
                 progress.update(task, advance=1)
             devices = check_and_connect_devices(config)
 
@@ -551,4 +551,5 @@ def main_menu():
 # ======================================================
 if __name__ == "__main__":
     main_menu()
+
 
