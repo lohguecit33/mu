@@ -229,7 +229,7 @@ def device_worker(device_id, cookie, config):
 
 def get_mumu_ports(config):
     """Generate port MuMu secara otomatis berdasarkan max_ports di config"""
-    base_port = 16448
+    base_port = 16384
     step = 32
     max_ports = config.get("max_ports", 20)
     return [base_port + step * i for i in range(max_ports)]
@@ -551,6 +551,7 @@ def main_menu():
 # ======================================================
 if __name__ == "__main__":
     main_menu()
+
 
 
 
