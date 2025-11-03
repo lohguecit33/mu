@@ -10,7 +10,6 @@ from rich.console import Console
 from rich.table import Table
 from rich.live import Live
 from rich.progress import Progress, BarColumn, TextColumn, TaskProgressColumn
-from termcolor import colored
 
 # Lokasi adb di folder script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,8 +24,11 @@ lock = threading.Lock()
 
 # ======================================================
 # Fungsi utilitas - DIPERBAIKI
-def load_config():
-    """Buat config.json kalau belum ada"""
+def ensure_files_exist():
+    """Pastikan file config.json dan cookies.txt ada saat program dimulai"""
+    files_created = []
+    
+    # Buat config.json jika belum ada
     if not os.path.exists(CONFIG_FILE):
         default_config = {
             "game_id": 2753915549,
@@ -38,37 +40,82 @@ def load_config():
         }
         with open(CONFIG_FILE, "w") as f:
             json.dump(default_config, f, indent=4)
+        files_created.append("config.json")
+        console.log(f"[green]✓ File {CONFIG_FILE} berhasil dibuat dengan konfigurasi default[/green]")
+    
+    # Buat cookies.txt jika belum ada
+    if not os.path.exists(COOKIES_FILE):
+        with open(COOKIES_FILE, "w") as f:
+            f.write("# Masukkan .ROBLOSECURITY cookie Anda di sini (satu baris per akun)\n")
+            f.write("# Contoh: _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone...\n")
+            f.write("\n")
+        files_created.append("cookies.txt")
+        console.log(f"[green]✓ File {COOKIES_FILE} berhasil dibuat[/green]")
+    
+    if files_created:
+        console.print("\n[yellow]File berikut telah dibuat:[/yellow]")
+        for f in files_created:
+            console.print(f"  → {f}")
+        
+        if "cookies.txt" in files_created:
+            console.print("\n[bold yellow]⚠ PENTING:[/bold yellow]")
+            console.print("Silakan isi file [cyan]cookies.txt[/cyan] dengan .ROBLOSECURITY cookie Anda")
+            console.print("sebelum menggunakan fitur Auto Rejoin atau Block/Unblock.\n")
+
+def load_config():
+    """Load config.json, buat jika belum ada"""
+    if not os.path.exists(CONFIG_FILE):
+        default_config = {
+            "game_id": 2753915549,
+            "private_link": "",
+            "check_interval": 60,
+            "presence_check_interval": 120,
+            "max_online_checks": 3,
+            "max_ports": 20
+        }
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(default_config, f, indent=4)
+    
     with open(CONFIG_FILE, "r") as f:
         config = json.load(f)
-        
+    
     # Validasi nilai config
-    if config["check_interval"] <= 0:
+    if config["check_interval"] < 0:
         config["check_interval"] = 60
-        console.log("[yellow]check_interval 0, no restart roblox[/yellow]")
+        console.log("[yellow]check_interval invalid, menggunakan default: 60[/yellow]")
     
     if config["presence_check_interval"] <= 0:
         config["presence_check_interval"] = 120
-        console.log("[yellow]presence_check_interval tidak valid, menggunakan nilai default 120[/yellow]")
+        console.log("[yellow]presence_check_interval invalid, menggunakan default: 120[/yellow]")
     
     if config["max_online_checks"] <= 0:
         config["max_online_checks"] = 3
-        console.log("[yellow]max_online_checks tidak valid, menggunakan nilai default 3[/yellow]")
+        console.log("[yellow]max_online_checks invalid, menggunakan default: 3[/yellow]")
     
     if config["max_ports"] <= 0:
         config["max_ports"] = 20
-        console.log("[yellow]max_ports tidak valid, menggunakan nilai default 20[/yellow]")
+        console.log("[yellow]max_ports invalid, menggunakan default: 20[/yellow]")
     
     return config
 
 def load_cookies():
-    """Load cookies.txt (satu baris = satu akun)"""
+    """Load cookies.txt, buat jika belum ada"""
     if not os.path.exists(COOKIES_FILE):
         with open(COOKIES_FILE, "w") as f:
-            f.write("ISI_COOKIE_DISINI\n")
-        console.log("[yellow]File cookies.txt dibuat, isi dengan .ROBLOSECURITY tiap akun.[/yellow]")
+            f.write("# Masukkan .ROBLOSECURITY cookie Anda di sini (satu baris per akun)\n")
+            f.write("# Contoh: _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone...\n")
+            f.write("\n")
+        console.log(f"[yellow]File {COOKIES_FILE} dibuat, isi dengan .ROBLOSECURITY tiap akun.[/yellow]")
         return []
+    
     with open(COOKIES_FILE, "r") as f:
-        return [line.strip() for line in f if line.strip()]
+        # Skip baris komentar dan baris kosong
+        cookies = []
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                cookies.append(line)
+        return cookies
 
 def get_user_id(cookie):
     """Ambil userId dan username dari cookie"""
@@ -105,7 +152,6 @@ def build_table():
 
 # ======================================================
 # Fungsi Roblox
-# ======================================================
 def get_presence(cookie, user_id):
     """Cek presence Roblox via API"""
     headers = {
@@ -162,7 +208,6 @@ def auto_join_game(device_id, game_id, private_link):
 
 # ======================================================
 # Fungsi Device Worker
-# ======================================================
 def device_worker(device_id, cookie, config):
     online_count = 0
     last_presence_check = 0
@@ -276,11 +321,16 @@ def check_and_connect_devices(config):
 
 # ======================================================
 # Fungsi Auto Rejoin
-# ======================================================
 def auto_rejoin():
     try:
         config = load_config()
         cookies = load_cookies()
+
+        if not cookies:
+            console.print("[red]⚠ File cookies.txt kosong atau tidak ada cookie yang valid![/red]")
+            console.print("[yellow]Silakan isi cookies.txt dengan .ROBLOSECURITY cookie Anda.[/yellow]")
+            input("\nTekan Enter untuk kembali ke menu...")
+            return
 
         progress = Progress(
             TextColumn("[progress.description]{task.description}"),
@@ -341,34 +391,39 @@ def auto_rejoin():
 
 # ======================================================
 # Fungsi Setup Config
-# ======================================================
 def setup_config():
     console.print("\n[bold]Setup Konfigurasi[/bold]")
     
     # Load config yang ada
     config = load_config()
     
-    console.print(f"Game ID saat ini: {config['game_id']}")
-    new_game_id = input("new game id (enter not change): ").strip()
+    console.print(f"\nGame ID saat ini: [cyan]{config['game_id']}[/cyan]")
+    new_game_id = input("Game ID baru (tekan Enter untuk tidak mengubah): ").strip()
     
     if new_game_id:
         try:
             config['game_id'] = int(new_game_id)
-            console.print(f"[green]Game ID change to: {config['game_id']}[/green]")
+            console.print(f"[green]✓ Game ID diubah menjadi: {config['game_id']}[/green]")
         except ValueError:
-            console.print("[red]Game ID must be a number![/red]")
+            console.print("[red]✗ Game ID harus berupa angka![/red]")
+            input("\nTekan Enter untuk kembali...")
             return
+    
+    console.print(f"\nPrivate Link saat ini: [cyan]{config.get('private_link', '(kosong)')}[/cyan]")
+    new_private = input("Private Link baru (tekan Enter untuk tidak mengubah): ").strip()
+    if new_private:
+        config['private_link'] = new_private
+        console.print(f"[green]✓ Private Link diubah[/green]")
     
     # Simpan config
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=4)
     
-    console.print("[green]Konfigurasi berhasil disimpan![/green]")
-    time.sleep(1)
+    console.print("\n[green]✓ Konfigurasi berhasil disimpan![/green]")
+    time.sleep(2)
 
 # ======================================================
 # Fungsi Block Account
-# ======================================================
 def get_username_by_id(user_id):
     try:
         resp = requests.get(
@@ -479,17 +534,17 @@ def process_action(users, action):
     input("\ntap Enter back main menu...")
 
 def block_accounts():
-    if not os.path.exists(COOKIES_FILE):
-        console.print("[red]File cookies.txt tidak ditemukan![/red]")
-        input("Tap Enter back main menu...")
+    cookies_raw = load_cookies()
+    
+    if not cookies_raw:
+        console.print("[red]⚠ File cookies.txt kosong atau tidak ada cookie yang valid![/red]")
+        console.print("[yellow]Silakan isi cookies.txt dengan .ROBLOSECURITY cookie Anda.[/yellow]")
+        input("\nTap Enter back main menu...")
         return
-        
-    with open(COOKIES_FILE, 'r') as f:
-        raw_cookies = [line.strip() for line in f if line.strip()]
 
     users = []
     console.print("🔗 Membaca akun dari cookies.txt\n")
-    for cookie in raw_cookies:
+    for cookie in cookies_raw:
         uid, uname = get_user_id(cookie)
         if uid:
             users.append({'cookie': cookie, 'id': uid, 'name': uname})
@@ -520,8 +575,10 @@ def block_accounts():
 
 # ======================================================
 # Main Menu
-# ======================================================
 def main_menu():
+    # Pastikan file config dan cookies ada sebelum menampilkan menu
+    ensure_files_exist()
+    
     while True:
         console.print("\n" + "="*50)
         console.print("[bold cyan]OVA ROBLOX MULTI-TOOL[/bold cyan]")
@@ -548,11 +605,5 @@ def main_menu():
 
 # ======================================================
 # Main
-# ======================================================
 if __name__ == "__main__":
     main_menu()
-
-
-
-
-
